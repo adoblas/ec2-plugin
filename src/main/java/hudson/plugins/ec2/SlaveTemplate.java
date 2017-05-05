@@ -124,6 +124,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public final boolean connectUsingPublicIp;
 
+    public boolean isNode;
+
     private transient/* almost final */Set<LabelAtom> labelSet;
 
     private transient/* almost final */Set<String> securityGroupSet;
@@ -144,7 +146,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
             boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
-            boolean connectBySSHProcess, boolean connectUsingPublicIp) {
+            boolean connectBySSHProcess, boolean connectUsingPublicIp, boolean isNode) {
         this.ami = ami;
         this.zone = zone;
         this.spotConfig = spotConfig;
@@ -171,6 +173,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.connectUsingPublicIp = connectUsingPublicIp;
         this.useDedicatedTenancy = useDedicatedTenancy;
         this.connectBySSHProcess = connectBySSHProcess;
+        this.isNode = isNode;
 
         if (null == instanceCapStr || instanceCapStr.isEmpty()) {
             this.instanceCap = Integer.MAX_VALUE;
@@ -197,11 +200,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
             boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
-            boolean connectBySSHProcess) {
+            boolean connectBySSHProcess, boolean isNode) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, amiType, jvmopts, stopOnTerminate, subnetId, tags,
                 idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile, useEphemeralDevices,
-                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, connectBySSHProcess, false);
+                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, connectBySSHProcess, false, isNode);
     }
 
     public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
@@ -209,11 +212,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             String tmpDir, String userData, String numExecutors, String remoteAdmin, AMITypeData amiType, String jvmopts,
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
-            boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping) {
+            boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping, boolean isNode) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, amiType, jvmopts, stopOnTerminate, subnetId, tags,
                 idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile, useEphemeralDevices,
-                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, false);
+                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, false, isNode);
     }
 
     /**
@@ -224,11 +227,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             String initScript, String tmpDir, String userData, String numExecutors, String remoteAdmin, String rootCommandPrefix,
             String jvmopts, boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
-            String launchTimeoutStr) {
+            String launchTimeoutStr, boolean isNode) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, new UnixData(rootCommandPrefix, sshPort), jvmopts, stopOnTerminate,
                 subnetId, tags, idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile,
-                useEphemeralDevices, false, launchTimeoutStr, false, null);
+                useEphemeralDevices, false, launchTimeoutStr, false, null, isNode);
     }
 
     public boolean isConnectBySSHProcess() {
@@ -361,7 +364,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return iamInstanceProfile;
     }
 
-    enum ProvisionOptions { ALLOW_CREATE, FORCE_CREATE }
+    public void setIsNode(Boolean isNode) {
+        this.isNode = isNode;
+    }
+
+    public Boolean getIsNode() {
+        return this.isNode;
+    }
+
+
+    public enum ProvisionOptions { ALLOW_CREATE, FORCE_CREATE }
 
     /**
      * Provisions a new EC2 slave or starts a previously stopped on-demand instance.
@@ -428,20 +440,28 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     private static void logProvision(PrintStream logger, String message) {
-        logger.println(message);
-        LOGGER.fine(message);
+        if (logger != null) {
+            logger.println(message);
+            LOGGER.fine(message);
+        }
     }
 
     private static void logProvisionInfo(PrintStream logger, String message) {
-        logger.println(message);
-        LOGGER.info(message);
+        if (logger != null) {
+            logger.println(message);
+            LOGGER.info(message);
+        }
     }
 
     /**
      * Provisions an On-demand EC2 slave by launching a new instance or starting a previously-stopped instance.
      */
     private EC2AbstractSlave provisionOndemand(TaskListener listener, Label requiredLabel, EnumSet<ProvisionOptions> provisionOptions) throws AmazonClientException, IOException {
-        PrintStream logger = listener.getLogger();
+        PrintStream logger = null;
+
+        if (listener != null){
+            logger = listener.getLogger();
+        }
         AmazonEC2 ec2 = getParent().connect();
 
         try {
@@ -453,6 +473,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             InstanceNetworkInterfaceSpecification net = new InstanceNetworkInterfaceSpecification();
 
             riRequest.setEbsOptimized(ebsOptimized);
+//            this.isNode = getIsNode();
 
             if (useEphemeralDevices) {
                 setupEphemeralDeviceMapping(riRequest);
@@ -722,6 +743,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             launchSpecification.setImageId(ami);
             launchSpecification.setInstanceType(type);
             launchSpecification.setEbsOptimized(ebsOptimized);
+//            this.isNode = getIsNode();
 
             if (StringUtils.isNotBlank(getZone())) {
                 SpotPlacement placement = new SpotPlacement(getZone());
