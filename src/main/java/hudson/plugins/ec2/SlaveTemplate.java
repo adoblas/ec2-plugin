@@ -116,7 +116,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public final boolean useDedicatedTenancy;
 
-    public AMITypeData amiType;
+    public transient AMITypeData amiType;
 
     public int launchTimeout;
 
@@ -146,7 +146,60 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
             boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
-            boolean connectBySSHProcess, boolean connectUsingPublicIp, boolean isNode) {
+            boolean connectBySSHProcess, boolean connectUsingPublicIp) {
+        this.ami = ami;
+        this.zone = zone;
+        this.spotConfig = spotConfig;
+        this.securityGroups = securityGroups;
+        this.remoteFS = remoteFS;
+        this.amiType = amiType;
+        this.type = type;
+        this.ebsOptimized = ebsOptimized;
+        this.labels = Util.fixNull(labelString);
+        this.mode = mode;
+        this.description = description;
+        this.initScript = initScript;
+        this.tmpDir = tmpDir;
+        this.userData = userData;
+        this.numExecutors = Util.fixNull(numExecutors).trim();
+        this.remoteAdmin = remoteAdmin;
+        this.jvmopts = jvmopts;
+        this.stopOnTerminate = stopOnTerminate;
+        this.subnetId = subnetId;
+        this.tags = tags;
+        this.idleTerminationMinutes = idleTerminationMinutes;
+        this.usePrivateDnsName = usePrivateDnsName;
+        this.associatePublicIp = associatePublicIp;
+        this.connectUsingPublicIp = connectUsingPublicIp;
+        this.useDedicatedTenancy = useDedicatedTenancy;
+        this.connectBySSHProcess = connectBySSHProcess;
+
+        if (null == instanceCapStr || instanceCapStr.isEmpty()) {
+            this.instanceCap = Integer.MAX_VALUE;
+        } else {
+            this.instanceCap = Integer.parseInt(instanceCapStr);
+        }
+
+        try {
+            this.launchTimeout = Integer.parseInt(launchTimeoutStr);
+        } catch (NumberFormatException nfe) {
+            this.launchTimeout = Integer.MAX_VALUE;
+        }
+
+        this.iamInstanceProfile = iamInstanceProfile;
+        this.useEphemeralDevices = useEphemeralDevices;
+        this.customDeviceMapping = customDeviceMapping;
+
+        readResolve(); // initialize
+    }
+
+    public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
+                         InstanceType type, boolean ebsOptimized, String labelString, Node.Mode mode, String description, String initScript,
+                         String tmpDir, String userData, String numExecutors, String remoteAdmin, AMITypeData amiType, String jvmopts,
+                         boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
+                         boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
+                         boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
+                         boolean connectBySSHProcess, boolean connectUsingPublicIp, boolean isNode) {
         this.ami = ami;
         this.zone = zone;
         this.spotConfig = spotConfig;
@@ -190,9 +243,8 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         this.iamInstanceProfile = iamInstanceProfile;
         this.useEphemeralDevices = useEphemeralDevices;
         this.customDeviceMapping = customDeviceMapping;
-
-        readResolve(); // initialize
     }
+
 
     public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
             InstanceType type, boolean ebsOptimized, String labelString, Node.Mode mode, String description, String initScript,
@@ -200,11 +252,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
             boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
-            boolean connectBySSHProcess, boolean isNode) {
+            boolean connectBySSHProcess) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, amiType, jvmopts, stopOnTerminate, subnetId, tags,
                 idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile, useEphemeralDevices,
-                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, connectBySSHProcess, false, isNode);
+                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, connectBySSHProcess, false);
     }
 
     public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
@@ -212,11 +264,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             String tmpDir, String userData, String numExecutors, String remoteAdmin, AMITypeData amiType, String jvmopts,
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
-            boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping, boolean isNode) {
+            boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, amiType, jvmopts, stopOnTerminate, subnetId, tags,
                 idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile, useEphemeralDevices,
-                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, false, isNode);
+                useDedicatedTenancy, launchTimeoutStr, associatePublicIp, customDeviceMapping, false);
     }
 
     /**
@@ -227,11 +279,11 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             String initScript, String tmpDir, String userData, String numExecutors, String remoteAdmin, String rootCommandPrefix,
             String jvmopts, boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
             boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
-            String launchTimeoutStr, boolean isNode) {
+            String launchTimeoutStr) {
         this(ami, zone, spotConfig, securityGroups, remoteFS, type, ebsOptimized, labelString, mode, description, initScript,
                 tmpDir, userData, numExecutors, remoteAdmin, new UnixData(rootCommandPrefix, sshPort), jvmopts, stopOnTerminate,
                 subnetId, tags, idleTerminationMinutes, usePrivateDnsName, instanceCapStr, iamInstanceProfile,
-                useEphemeralDevices, false, launchTimeoutStr, false, null, isNode);
+                useEphemeralDevices, false, launchTimeoutStr, false, null);
     }
 
     public boolean isConnectBySSHProcess() {
@@ -473,7 +525,6 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             InstanceNetworkInterfaceSpecification net = new InstanceNetworkInterfaceSpecification();
 
             riRequest.setEbsOptimized(ebsOptimized);
-//            this.isNode = getIsNode();
 
             if (useEphemeralDevices) {
                 setupEphemeralDeviceMapping(riRequest);

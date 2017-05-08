@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?jelly escape-by-default='true'?>
+<j:jelly xmlns:j="jelly:core">
+    <p>
+        The <code>ec2</code> variable offers convenient access to AWS functions from a Pipeline script.
+    </p>
+
+    <dl>
+        <dt><code>instance(String cloudName, String label)</code></dt>
+        <dd>
+            <p>
+                Creates an <code>EC2AbstractSlave</code> object, from an already globally defined cloud name and label.
+            </p>
+        </dd>
+        <dt><code>Node.boot()</code></dt>
+        <dd>
+            <p>
+                Provisions a machine in AWS without registering it as a Jenkins agent.
+            </p>
+        </dd>
+        <dt><code>Instance.getPrivateAddress(int timeout)</code></dt>
+            <dd>
+                <p>
+                    Returns the private IP once the instance is running. If timeout (minutes) is reached, returns an empty string.
+                    - timeout default value: 10 minutes.
+                </p>
+            </dd>
+        <dt><code>Node.getPublicAddress(int timeout)</code></dt>
+            <dd>
+                <p>
+                    Returns the public IP once the instance is running. If timeout (minutes) is reached, returns an empty string.
+                    - timeout default value: 10 minutes.
+                </p>
+            </dd>
+    </dl>
+</j:jelly>

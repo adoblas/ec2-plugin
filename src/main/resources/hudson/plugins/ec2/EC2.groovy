@@ -1,5 +1,6 @@
 package hudson.plugins.ec2
 
+import hudson.model.TaskListener
 import hudson.model.labels.LabelAtom
 import com.amazonaws.services.ec2.model.Instance
 import hudson.slaves.Cloud
@@ -12,8 +13,8 @@ class EC2 implements Serializable {
         this.script = script
     }
 
-    public Node instance(String cloudName, String ami) {
-        new Node(this, cloudName, ami)
+    public Node instance(String cloudName, String label) {
+        new Node(this, cloudName, label)
     }
 
     public static class Node implements Serializable {
@@ -30,22 +31,51 @@ class EC2 implements Serializable {
         }
 
         public String boot() {
-            def Cloud cl = jenkins.model.Jenkins.getActiveInstance().clouds.getByName(cloudName)
-            def t
-            if (cl instanceof EC2Cloud) {
-                cl = (EC2Cloud) cl
-                t = cl.getTemplate()
+            Cloud cl = jenkins.model.Jenkins.getActiveInstance().clouds.get(0)
+            if (cl instanceof AmazonEC2Cloud) {
+                cl = (AmazonEC2Cloud) cl
+                def t = cl.getTemplate(this.label)
                 t.setIsNode(false)
+                def lbl = new LabelAtom(label)
+                Enum<SlaveTemplate.ProvisionOptions>[] universe = [SlaveTemplate.ProvisionOptions.ALLOW_CREATE]
+                EnumSet opt = new RegularEnumSet(SlaveTemplate.ProvisionOptions, universe)
+                this.instance = t.provisionOndemand(TaskListener.NULL, lbl, opt)
+            } else {
+                ec2.script.error "Error in AWS Cloud. Please review EC2 settings in Jenkins configuration."
             }
-            def lbl
-            lbl = new LabelAtom(label)
-            t.provisionOndemand(null, lbl, SlaveTemplate.ProvisionOptions.ALLOW_CREATE)
-//            this.instance = t.provisionOndemand(null, lbl, SlaveTemplate.ProvisionOptions.ALLOW_CREATE)
         }
 
-        public String getAddress() {
+        public String getPrivateAddress(int timeout) {
             Instance ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
+            int i = 0
+            int miliTimout = timeout * 60000
+            while (ins.state.name != "running" && i < miliTimout) {
+                Thread.sleep(10000)
+                i = i + 10000
+                ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
+            }
             ins.getPrivateIpAddress()
+        }
+
+        public String getPublicAddress(int timeout) {
+            Instance ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
+            int i = 0
+            int miliTimout = timeout * 60000
+            while (ins.state.name != "running" && i < miliTimout) {
+                Thread.sleep(10000)
+                i = i + 10000
+                ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
+            }
+            ins.getPublicIpAddress()
+        }
+
+        protected String getPublicAddress() {
+            int timeout = 10
+            getPublicAddress(timeout)
+        }
+        protected String getPrivateAddress() {
+            int timeout = 10
+            getPrivateAddress(timeout)
         }
     }
 }
