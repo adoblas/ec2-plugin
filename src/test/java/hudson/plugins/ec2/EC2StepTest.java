@@ -54,51 +54,7 @@ public class EC2StepTest {
 
     @Before
     public void setup () throws Exception {
-            //        List<EC2Tag> type = new ArrayList<>();
-            //        EC2Tag tag = new EC2Tag("jenkins_slave_type","demand_aws-CentOS-7");
-            //        type.add(tag);
-            //        InstanceType instanceT = InstanceType.M4Xlarge;
-            //        Node.Mode modeT = Node.Mode.NORMAL;
-            //        AMITypeData amyData = new AMITypeData() {
-            //            @Override
-            //            public boolean isWindows() {
-            //                return false;
-            //            }
-            //
-            //            @Override
-            //            public boolean isUnix() {
-            //                return true;
-            //            }
-            //        };
-            //        List nodeProps = new ArrayList();
-            //        nodeProps.add("dummy");
-            //        absSlave = new EC2AbstractSlave("name", "1", "us-east-1", "/home/centos", 2, modeT, "aws-CentOS-7",
-            //                new CommandLauncher("ls -la"), new EC2RetentionStrategy("-5"), "la -la", "/", nodeProps, "centos", "", true,
-            //                "-5", type, "myCloud", false, false, 5, amyData) {
-            //            @Override
-            //            public void terminate() {
-            //
-            //            }
-            //
-            //            @Override
-            //            public String getEc2Type() {
-            //                return Messages.EC2OndemandSlave_OnDemand();
-            //            }
-            //        };
-//        SlaveTemplate template = new SlaveTemplate("ami-7abd0209", "us-east-1", null,
-//                "default","/home/centos", instanceT, true, "aws-CentOS-7",
-//                 modeT, "aws-CentOS-7", "ls -la", "/", null, "2", "centos",
-//                 amyData, null,true, null, type, "-5", false,
-//                null, null, false, false, null,
-//                false, null, false, false, false);
-//
-//        EnumSet<ProvisionOptions> provEnum = EnumSet.noneOf(ProvisionOptions.class);
-//        ProvisionOptions opt = ProvisionOptions.ALLOW_CREATE;
-//        provEnum.add(opt);
-
         when(st.getAmi()).thenReturn("SlaveTemplate MOCKED");
-//        when(st.get)
-
 
         List<SlaveTemplate> templates = new ArrayList<SlaveTemplate>();
         templates.add(st);
@@ -135,10 +91,10 @@ public class EC2StepTest {
                         "    echo \"RUNNING MI TEST.THIS IS CRAZY!!!\"\n" +
                         "    def X = ec2.instance('myCloud', 'aws-CentOS-7')\n" +
                         "    X.boot()\n" +
-//                        "    echo X.getPublicAddress(5)\n" +
+                        "    echo X.getPublicAddress(5)\n" +
                         "}" , true));
         WorkflowRun b = r.assertBuildStatusSuccess(boot.scheduleBuild2(0));
-//        r.assertLogContains("1.2.3.4", b);
+        r.assertLogContains("1.2.3.4", b);
         r.assertLogContains("SUCCESS", b);
     }
 
