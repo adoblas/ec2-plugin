@@ -17,11 +17,16 @@ class EC2 implements Serializable {
         new Node(this, cloudName, label)
     }
 
+    public Node instance(String cloudName, String label, String spotMaxBidPrice) {
+        new Node(this, cloudName, label, spotMaxBidPrice)
+    }
+
     public static class Node implements Serializable {
 
         private final EC2 ec2
         private final String cloudName
         private final String label
+        private final transient String spotMaxBidPrice
         private EC2AbstractSlave instance = null
 
         private Node(EC2 ec2, String cloudName, String label) {
@@ -30,16 +35,32 @@ class EC2 implements Serializable {
             this.label = label
         }
 
+        private Node(EC2 ec2, String cloudName, String label, String spotMaxBidPrice) {
+            this.ec2 = ec2
+            this.cloudName = cloudName
+            this.label = label
+            this.spotMaxBidPrice = spotMaxBidPrice
+        }
+
         public String boot() {
-            Cloud cl = jenkins.model.Jenkins.getActiveInstance().clouds.get(0)
+            Cloud cl = jenkins.model.Jenkins.getActiveInstance().clouds.get(0) //TODO: find by name
+            ec2.script.echo jenkins.model.Jenkins.getActiveInstance().clouds.inspect()
             if (cl instanceof AmazonEC2Cloud) {
                 cl = (AmazonEC2Cloud) cl
-                def t = cl.getTemplate(this.label)
+                ec2.script.echo cl.getCloudName()
+                def t = cl.getTemplate(this.label) //TODO: no label match
+                ec2.script.echo cl.getTemplate(this.label).inspect()
                 t.setIsNode(false)
                 def lbl = new LabelAtom(label)
-                Enum<SlaveTemplate.ProvisionOptions>[] universe = [SlaveTemplate.ProvisionOptions.ALLOW_CREATE]
-                EnumSet opt = new RegularEnumSet(SlaveTemplate.ProvisionOptions, universe)
-                this.instance = t.provisionOndemand(TaskListener.NULL, lbl, opt)
+                def universe = [SlaveTemplate.ProvisionOptions.ALLOW_CREATE] as Enum<SlaveTemplate.ProvisionOptions>[]
+                def opt = new RegularEnumSet(SlaveTemplate.ProvisionOptions, universe)
+                opt.add(SlaveTemplate.ProvisionOptions.ALLOW_CREATE)
+                ec2.script.echo "${opt.inspect()}"
+
+                if (this.spotMaxBidPrice != null) {
+                    t.spotConfig = new SpotConfiguration(spotMaxBidPrice)
+                }
+                instance = t.provision(TaskListener.NULL, lbl, opt)
             } else {
                 ec2.script.error "Error in AWS Cloud. Please review EC2 settings in Jenkins configuration."
             }

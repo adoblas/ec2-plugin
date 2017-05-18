@@ -1,7 +1,14 @@
 package hudson.plugins.ec2.util;
 
-/**
- * Created by adoblas on 8/5/17.
- */
-public class PluginTestRule {
+import hudson.plugins.ec2.AmazonEC2Cloud;
+import hudson.plugins.ec2.SlaveTemplate;
+import org.jvnet.hudson.test.JenkinsRule;
+
+import java.util.List;
+
+public class PluginTestRule extends JenkinsRule {
+
+    public void addCloud (AmazonEC2Cloud cl) {
+        jenkins.clouds.add(cl);
+    }
 }
