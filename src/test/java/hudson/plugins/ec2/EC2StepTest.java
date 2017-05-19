@@ -50,8 +50,6 @@ public class EC2StepTest {
     @Mock
     private Instance myInstance;
 
-//    EC2AbstractSlave absSlave;
-
     @Before
     public void setup () throws Exception {
         when(st.getAmi()).thenReturn("SlaveTemplate MOCKED");
@@ -77,24 +75,24 @@ public class EC2StepTest {
         mockStatic(EC2AbstractSlave.class);
         when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
 
+        InstanceState myState = new InstanceState();
+        myState.setName("running");
+
+        when(myInstance.getState()).thenReturn(myState);
         when(myInstance.getPublicIpAddress()).thenReturn("10.20.30.40");
         when(myInstance.getPrivateIpAddress()).thenReturn("1.2.3.4");
 
-        InstanceState myState = new InstanceState();
-        myState.setName("running");
-        myInstance.setState(myState);
 
 
         WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
         boot.setDefinition(new CpsFlowDefinition(
                 " node('master') {\n" +
-                        "    echo \"RUNNING MI TEST.THIS IS CRAZY!!!\"\n" +
                         "    def X = ec2.instance('myCloud', 'aws-CentOS-7')\n" +
                         "    X.boot()\n" +
                         "    echo X.getPublicAddress(5)\n" +
                         "}" , true));
         WorkflowRun b = r.assertBuildStatusSuccess(boot.scheduleBuild2(0));
-        r.assertLogContains("1.2.3.4", b);
+        r.assertLogContains("10.20.30.40", b);
         r.assertLogContains("SUCCESS", b);
     }
 

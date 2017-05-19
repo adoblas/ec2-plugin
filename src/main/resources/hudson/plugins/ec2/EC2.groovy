@@ -70,7 +70,7 @@ class EC2 implements Serializable {
             Instance ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
             int i = 0
             int miliTimout = timeout * 60000
-            while (ins.state.name != "running" && i < miliTimout) {
+            while (ins.getState().name != "running" && i < miliTimout) {
                 Thread.sleep(10000)
                 i = i + 10000
                 ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
@@ -82,7 +82,7 @@ class EC2 implements Serializable {
             Instance ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
             int i = 0
             int miliTimout = timeout * 60000
-            while (ins.state.name != "running" && i < miliTimout) {
+            while (ins.getState().name != "running" && i < miliTimout) {
                 Thread.sleep(10000)
                 i = i + 10000
                 ins = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud())
