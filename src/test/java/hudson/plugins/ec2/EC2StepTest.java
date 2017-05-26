@@ -62,6 +62,7 @@ public class EC2StepTest {
     @Test
     public void boot_PublicIP() throws Exception {
 
+        when(st.getZone()).thenReturn("us-east-1");
         when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
 
 

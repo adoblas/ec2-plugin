@@ -24,6 +24,7 @@
 package hudson.plugins.ec2;
 
 import com.amazonaws.services.ec2.model.Instance;
+import com.amazonaws.services.ec2.model.InstanceType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import hudson.Extension;
 import hudson.FilePath;
@@ -102,7 +103,15 @@ public class EC2Step extends Step {
                 if (cList.getDisplayName().equals(cloud)) {
                     List<SlaveTemplate> templates = ((AmazonEC2Cloud) cList).getTemplates();
                     for (SlaveTemplate template : templates) {
-                        r.add(template.getDisplayName());
+                        String[] labList = template.labels.split(" ");
+                        if (labList.length > 1) { //Several labels defined for the same template
+                            for (int i = 0; i < labList.length; i++) {
+                                r.add(labList[i] + " , " + template.getAmi() + " , " + ((AmazonEC2Cloud) cList).getRegion() + " , " + template.type.name());
+                            }
+                        }
+                        else {
+                                r.add(template.getLabelString() + " , " + template.getAmi() + " , " + ((AmazonEC2Cloud) cList).getRegion() + " , " + template.type.name());
+                            }
                     }
                 }
             }
