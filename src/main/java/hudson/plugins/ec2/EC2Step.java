@@ -24,11 +24,8 @@
 package hudson.plugins.ec2;
 
 import com.amazonaws.services.ec2.model.Instance;
-import com.google.common.collect.ImmutableSet;
-import hudson.EnvVars;
 import hudson.Extension;
 import hudson.Util;
-import hudson.model.Node;
 import hudson.model.TaskListener;
 import hudson.model.labels.LabelAtom;
 import hudson.slaves.Cloud;
@@ -41,7 +38,7 @@ import org.kohsuke.stapler.QueryParameter;
 import java.util.*;
 
 /**
- * Returns the working directory path.
+ * Returns the instance provisioned.
  *
  * Used like:
  *
@@ -50,6 +47,8 @@ import java.util.*;
  *     def x = ec2 cloud: 'myCloud', template: 'aws-CentOS-7'
  * }
  * </pre>
+ *
+ * @author Alicia Doblas
  */
 public class EC2Step extends Step {
 
@@ -135,9 +134,7 @@ public class EC2Step extends Step {
 
         @Override
         protected Instance run() throws Exception {
-//            System.out.println("VALOR DE CLOUD: " + cloud);
             Cloud cl = getByDisplayName(jenkins.model.Jenkins.getActiveInstance().clouds, this.cloud);
-//            System.out.println("ESTOY PASANDO POR BOOT");
             if (cl instanceof AmazonEC2Cloud) {
                 SlaveTemplate t;
                 t = ((AmazonEC2Cloud) cl).getTemplate(this.template);
