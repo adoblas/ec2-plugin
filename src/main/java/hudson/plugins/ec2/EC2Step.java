@@ -24,24 +24,21 @@
 package hudson.plugins.ec2;
 
 import com.amazonaws.services.ec2.model.Instance;
-import com.amazonaws.services.ec2.model.InstanceType;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import com.google.common.collect.ImmutableSet;
+import hudson.EnvVars;
 import hudson.Extension;
-import hudson.FilePath;
 import hudson.Util;
+import hudson.model.Node;
 import hudson.model.TaskListener;
 import hudson.model.labels.LabelAtom;
 import hudson.slaves.Cloud;
-import hudson.slaves.WorkspaceList;
-
-import java.util.*;
-import java.util.concurrent.TimeUnit;
-
 import hudson.util.ListBoxModel;
 import jenkins.model.Jenkins;
 import org.jenkinsci.plugins.workflow.steps.*;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.QueryParameter;
+
+import java.util.*;
 
 /**
  * Returns the working directory path.
@@ -56,42 +53,47 @@ import org.kohsuke.stapler.QueryParameter;
  */
 public class EC2Step extends Step {
 
-    private final String cloudName;
-    private final String label;
+    private String cloud;
+    private String template;
 
-    @DataBoundConstructor public EC2Step(String cloudName,  String label) {
-        this.cloudName = cloudName;
-        this.label = label;
+    @DataBoundConstructor
+    public EC2Step(String cloud, String template) {
+        this.cloud = cloud;
+        this.template = template;
+    }
+    public String getCloud() {
+        return cloud;
     }
 
-    public String getCloudName() {
-        return this.cloudName;
-    }
-    public String getLabel() {
-        return this.label;
+    public String getTemplate() {
+        return template;
     }
 
-
+    @Override
     public StepExecution start(StepContext context) throws Exception {
         return new EC2Step.Execution( this, context);
     }
 
-    @Extension public static final class DescriptorImpl extends StepDescriptor {
+    @Extension
+    public static final class DescriptorImpl extends StepDescriptor {
 
-        @Override public String getFunctionName() {
-            return "EC2";
+        @Override
+        public String getFunctionName() {
+            return "ec2";
         }
 
-        @Override public String getDisplayName() {
-            return "EC2 machine provisioning";
+        @Override
+        public String getDisplayName() {
+            return "Cloud template provisioning";
         }
 
 
         public ListBoxModel doFillCloudItems() {
             ListBoxModel r = new ListBoxModel();
+            r.add("", "");
             Jenkins.CloudList clouds = jenkins.model.Jenkins.getActiveInstance().clouds;
             for (Cloud cList : clouds) {
-                r.add(cList.getDisplayName());
+                r.add(cList.getDisplayName(), cList.getDisplayName());
             }
             return r;
         }
@@ -103,15 +105,9 @@ public class EC2Step extends Step {
                 if (cList.getDisplayName().equals(cloud)) {
                     List<SlaveTemplate> templates = ((AmazonEC2Cloud) cList).getTemplates();
                     for (SlaveTemplate template : templates) {
-                        String[] labList = template.labels.split(" ");
-                        if (labList.length > 1) { //Several labels defined for the same template
-                            for (int i = 0; i < labList.length; i++) {
-                                r.add(labList[i] + " , " + template.getAmi() + " , " + ((AmazonEC2Cloud) cList).getRegion() + " , " + template.type.name());
-                            }
+                        for (String labelList : template.labels.split(" ")) {
+                            r.add(labelList + "  (AMI: " + template.getAmi() + ", REGION: " + ((AmazonEC2Cloud) cList).getRegion() + ", TYPE: " + template.type.name() + ")", labelList);
                         }
-                        else {
-                                r.add(template.getLabelString() + " , " + template.getAmi() + " , " + ((AmazonEC2Cloud) cList).getRegion() + " , " + template.type.name());
-                            }
                     }
                 }
             }
@@ -119,20 +115,48 @@ public class EC2Step extends Step {
         }
 
 
-        @Override public Set<? extends Class<?>> getRequiredContext() {
+        @Override
+        public Set<? extends Class<?>> getRequiredContext() {
             return Collections.singleton(TaskListener.class);
         }
 
     }
 
     public static class Execution extends SynchronousNonBlockingStepExecution<Instance> {
-        private final String cloudName;
-        private final String label;
+        private final String cloud;
+        private final String template;
+
 
         Execution(EC2Step step, StepContext context) {
             super(context);
-            this.cloudName = step.cloudName;
-            this.label = step.label;
+            this.cloud = step.cloud;
+            this.template = step.template;
+        }
+
+        @Override
+        protected Instance run() throws Exception {
+//            System.out.println("VALOR DE CLOUD: " + cloud);
+            Cloud cl = getByDisplayName(jenkins.model.Jenkins.getActiveInstance().clouds, this.cloud);
+//            System.out.println("ESTOY PASANDO POR BOOT");
+            if (cl instanceof AmazonEC2Cloud) {
+                SlaveTemplate t;
+                t = ((AmazonEC2Cloud) cl).getTemplate(this.template);
+                if (t != null) {
+                    t.setIsNode(false);
+                    LabelAtom lbl = new LabelAtom(this.template);
+                    SlaveTemplate.ProvisionOptions universe = SlaveTemplate.ProvisionOptions.ALLOW_CREATE;
+                    EnumSet<SlaveTemplate.ProvisionOptions> opt = EnumSet.noneOf(SlaveTemplate.ProvisionOptions.class);
+                    opt.add(universe);
+
+                    EC2AbstractSlave instance = t.provision(TaskListener.NULL, lbl, opt);
+                    Instance myInstance = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud());
+                    return myInstance;
+                } else {
+                    throw new IllegalArgumentException("Error in AWS Cloud. Please review AWS template defined in Jenkins configuration.");
+                }
+            } else {
+                throw new IllegalArgumentException("Error in AWS Cloud. Please review EC2 settings in Jenkins configuration.");
+            }
         }
 
         public Cloud getByDisplayName(Jenkins.CloudList clouds, String name) {
@@ -147,29 +171,6 @@ public class EC2Step extends Step {
                 c = (Cloud) i$.next();
             }
             return c;
-        }
-
-        @Override protected Instance run() throws Exception {
-            Cloud cl = getByDisplayName(jenkins.model.Jenkins.getActiveInstance().clouds, this.cloudName);
-            if (cl instanceof AmazonEC2Cloud) {
-                SlaveTemplate t;
-                t = ((AmazonEC2Cloud) cl).getTemplate(this.label);
-                if (t != null) {
-                    t.setIsNode(false);
-                    LabelAtom lbl = new LabelAtom(this.label);
-                    SlaveTemplate.ProvisionOptions universe = SlaveTemplate.ProvisionOptions.ALLOW_CREATE;
-                    EnumSet<SlaveTemplate.ProvisionOptions> opt = EnumSet.noneOf(SlaveTemplate.ProvisionOptions.class);
-                    opt.add(universe);
-
-                    EC2AbstractSlave instance = t.provision(TaskListener.NULL, lbl, opt);
-                    Instance myInstance = EC2AbstractSlave.getInstance(instance.getInstanceId(), instance.getCloud());
-                    return myInstance;
-                } else {
-                    throw new IllegalArgumentException("Error in AWS Cloud. Please review AWS template defined in Jenkins configuration.");
-                }
-            } else {
-                throw new IllegalArgumentException("Error in AWS Cloud. Please review EC2 settings in Jenkins configuration.");
-            }
         }
     }
 
