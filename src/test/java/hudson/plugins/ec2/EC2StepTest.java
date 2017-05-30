@@ -1,7 +1,6 @@
 package hudson.plugins.ec2;
 
 
-import com.amazonaws.services.ec2.model.Instance;
 import hudson.model.Label;
 import hudson.model.Result;
 import hudson.model.TaskListener;
@@ -26,8 +25,10 @@ import java.util.List;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyString;
 import static org.mockito.Mockito.when;
-import static org.powermock.api.mockito.PowerMockito.mockStatic;
 
+/**
+ * @author Alicia Doblas
+ */
 @PowerMockIgnore({"javax.crypto.*", "org.hamcrest.*", "javax.net.ssl.*"})
 @RunWith(PowerMockRunner.class)
 @PrepareForTest({EC2AbstractSlave.class, SlaveTemplate.class})
@@ -44,9 +45,6 @@ public class EC2StepTest {
     @Mock
     private EC2AbstractSlave instance;
 
-    @Mock
-    private Instance myInstance;
-
     @Before
     public void setup () throws Exception {
         List<SlaveTemplate> templates = new ArrayList<SlaveTemplate>();
@@ -59,112 +57,30 @@ public class EC2StepTest {
         r.addCloud(cl);
     }
 
+
     @Test
-    public void boot_PublicIP() throws Exception {
+    public void bootInstance() throws Exception {
 
-        when(st.getZone()).thenReturn("us-east-1");
         when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
-
-
-        when(instance.getInstanceId()).thenReturn("1");
-        when(instance.getCloud()).thenReturn(cl);
-
-        mockStatic(EC2AbstractSlave.class);
-        when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
-
-        com.amazonaws.services.ec2.model.InstanceState myState = new com.amazonaws.services.ec2.model.InstanceState();
-        myState.setName("running");
-
-        when(myInstance.getState()).thenReturn(myState);
-        when(myInstance.getPublicIpAddress()).thenReturn("10.20.30.40");
 
         WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
         boot.setDefinition(new CpsFlowDefinition(
                 " node('master') {\n" +
-                        "    def X = ec2.instance('myCloud', 'aws-CentOS-7')\n" +
-                        "    X.boot()\n" +
-                        "    echo X.getPublicAddress(5)\n" +
+                        "    def X = ec2 cloud: 'myCloud', template: 'aws-CentOS-7'\n" +
                         "}" , true));
         WorkflowRun b = r.assertBuildStatusSuccess(boot.scheduleBuild2(0));
-        r.assertLogContains("10.20.30.40", b);
         r.assertLogContains("SUCCESS", b);
     }
-
-    @Test
-    public void boot_privateIP() throws Exception {
-
-        when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
-
-        when(instance.getInstanceId()).thenReturn("1");
-        when(instance.getCloud()).thenReturn(cl);
-
-        mockStatic(EC2AbstractSlave.class);
-        when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
-
-        com.amazonaws.services.ec2.model.InstanceState myState = new com.amazonaws.services.ec2.model.InstanceState();
-        myState.setName("running");
-
-        when(myInstance.getState()).thenReturn(myState);
-        when(myInstance.getPrivateIpAddress()).thenReturn("1.2.3.4");
-
-        WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
-        boot.setDefinition(new CpsFlowDefinition(
-                " node('master') {\n" +
-                        "    def X = ec2.instance('myCloud', 'aws-CentOS-7')\n" +
-                        "    X.boot()\n" +
-                        "    echo X.getPrivateAddress(5)\n" +
-                        "}" , true));
-        WorkflowRun b = r.assertBuildStatusSuccess(boot.scheduleBuild2(0));
-        r.assertLogContains("1.2.3.4", b);
-        r.assertLogContains("SUCCESS", b);
-    }
-
-    @Test
-    public void boot_timeout() throws Exception {
-
-        when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
-
-        when(instance.getInstanceId()).thenReturn("1");
-        when(instance.getCloud()).thenReturn(cl);
-
-        mockStatic(EC2AbstractSlave.class);
-        when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
-
-        com.amazonaws.services.ec2.model.InstanceState myState = new com.amazonaws.services.ec2.model.InstanceState();
-        myState.setName("stopped");
-
-        when(myInstance.getState()).thenReturn(myState);
-        when(myInstance.getPublicIpAddress()).thenReturn("10.20.30.40");
-
-        WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
-        boot.setDefinition(new CpsFlowDefinition(
-                " node('master') {\n" +
-                        "    def X = ec2.instance('myCloud', 'aws-CentOS-7')\n" +
-                        "    X.boot()\n" +
-                        "    echo X.getPublicAddress(1)\n" +
-                        "}" , true));
-        WorkflowRun b = r.assertBuildStatusSuccess(boot.scheduleBuild2(0));
-        r.assertLogContains("10.20.30.40", b);
-        r.assertLogContains("SUCCESS", b);
-    }
-
 
     @Test
     public void boot_noCloud() throws Exception {
 
         when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
 
-        when(instance.getInstanceId()).thenReturn("1");
-        when(instance.getCloud()).thenReturn(cl);
-
-        mockStatic(EC2AbstractSlave.class);
-        when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
-
-
         WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
         boot.setDefinition(new CpsFlowDefinition(
                 " node('master') {\n" +
-                        "    def X = ec2.instance('dummyCloud', 'aws-CentOS-7')\n" +
+                        "    def X = ec2 cloud: 'dummyCloud', template: 'aws-CentOS-7'\n" +
                         "    X.boot()\n" +
                         "}" , true));
         WorkflowRun b = r.assertBuildStatus(Result.FAILURE, boot.scheduleBuild2(0).get());
@@ -179,16 +95,10 @@ public class EC2StepTest {
         when(cl.getTemplate(anyString())).thenReturn(null);
         when(st.provision(any(TaskListener.class),any(Label.class),any(EnumSet.class))).thenReturn(instance);
 
-        when(instance.getInstanceId()).thenReturn("1");
-        when(instance.getCloud()).thenReturn(cl);
-
-        mockStatic(EC2AbstractSlave.class);
-        when(EC2AbstractSlave.getInstance(anyString(),any(EC2Cloud.class))).thenReturn(myInstance);
-
         WorkflowJob boot = r.jenkins.createProject(WorkflowJob.class, "EC2Test");
         boot.setDefinition(new CpsFlowDefinition(
                 " node('master') {\n" +
-                        "    def X = ec2.instance('myCloud', 'dummyTemplate')\n" +
+                        "    def X = ec2 cloud: 'myCloud', template: 'dummyTemplate'\n" +
                         "    X.boot()\n" +
                         "}" , true));
         WorkflowRun b = r.assertBuildStatus(Result.FAILURE, boot.scheduleBuild2(0).get());
