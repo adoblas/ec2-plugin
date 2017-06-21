@@ -116,13 +116,15 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
 
     public final boolean useDedicatedTenancy;
 
-    public AMITypeData amiType;
+    public transient AMITypeData amiType;
 
     public int launchTimeout;
 
     public boolean connectBySSHProcess;
 
     public final boolean connectUsingPublicIp;
+
+    private boolean node = true;
 
     private transient/* almost final */Set<LabelAtom> labelSet;
 
@@ -361,7 +363,16 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
         return iamInstanceProfile;
     }
 
-    enum ProvisionOptions { ALLOW_CREATE, FORCE_CREATE }
+    public void setNode(Boolean node) {
+        this.node = node;
+    }
+
+    public Boolean isNode() {
+        return this.node;
+    }
+
+
+    public enum ProvisionOptions { ALLOW_CREATE, FORCE_CREATE }
 
     /**
      * Provisions a new EC2 slave or starts a previously stopped on-demand instance.
