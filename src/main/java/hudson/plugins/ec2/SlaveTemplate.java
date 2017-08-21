@@ -194,6 +194,59 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
+                         InstanceType type, boolean ebsOptimized, String labelString, Node.Mode mode, String description, String initScript,
+                         String tmpDir, String userData, String numExecutors, String remoteAdmin, AMITypeData amiType, String jvmopts,
+                         boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
+                         boolean usePrivateDnsName, String instanceCapStr, String iamInstanceProfile, boolean useEphemeralDevices,
+                         boolean useDedicatedTenancy, String launchTimeoutStr, boolean associatePublicIp, String customDeviceMapping,
+                         boolean connectBySSHProcess, boolean connectUsingPublicIp, boolean isNode) {
+        this.ami = ami;
+        this.zone = zone;
+        this.spotConfig = spotConfig;
+        this.securityGroups = securityGroups;
+        this.remoteFS = remoteFS;
+        this.amiType = amiType;
+        this.type = type;
+        this.ebsOptimized = ebsOptimized;
+        this.labels = Util.fixNull(labelString);
+        this.mode = mode;
+        this.description = description;
+        this.initScript = initScript;
+        this.tmpDir = tmpDir;
+        this.userData = userData;
+        this.numExecutors = Util.fixNull(numExecutors).trim();
+        this.remoteAdmin = remoteAdmin;
+        this.jvmopts = jvmopts;
+        this.stopOnTerminate = stopOnTerminate;
+        this.subnetId = subnetId;
+        this.tags = tags;
+        this.idleTerminationMinutes = idleTerminationMinutes;
+        this.usePrivateDnsName = usePrivateDnsName;
+        this.associatePublicIp = associatePublicIp;
+        this.connectUsingPublicIp = connectUsingPublicIp;
+        this.useDedicatedTenancy = useDedicatedTenancy;
+        this.connectBySSHProcess = connectBySSHProcess;
+        this.isNode = isNode;
+
+        if (null == instanceCapStr || instanceCapStr.isEmpty()) {
+            this.instanceCap = Integer.MAX_VALUE;
+        } else {
+            this.instanceCap = Integer.parseInt(instanceCapStr);
+        }
+
+        try {
+            this.launchTimeout = Integer.parseInt(launchTimeoutStr);
+        } catch (NumberFormatException nfe) {
+            this.launchTimeout = Integer.MAX_VALUE;
+        }
+
+        this.iamInstanceProfile = iamInstanceProfile;
+        this.useEphemeralDevices = useEphemeralDevices;
+        this.customDeviceMapping = customDeviceMapping;
+    }
+
+
+    public SlaveTemplate(String ami, String zone, SpotConfiguration spotConfig, String securityGroups, String remoteFS,
             InstanceType type, boolean ebsOptimized, String labelString, Node.Mode mode, String description, String initScript,
             String tmpDir, String userData, String numExecutors, String remoteAdmin, AMITypeData amiType, String jvmopts,
             boolean stopOnTerminate, String subnetId, List<EC2Tag> tags, String idleTerminationMinutes,
@@ -439,20 +492,28 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
     }
 
     private static void logProvision(PrintStream logger, String message) {
-        logger.println(message);
-        LOGGER.fine(message);
+        if (logger != null) {
+            logger.println(message);
+            LOGGER.fine(message);
+        }
     }
 
     private static void logProvisionInfo(PrintStream logger, String message) {
-        logger.println(message);
-        LOGGER.info(message);
+        if (logger != null) {
+            logger.println(message);
+            LOGGER.info(message);
+        }
     }
 
     /**
      * Provisions an On-demand EC2 slave by launching a new instance or starting a previously-stopped instance.
      */
     private EC2AbstractSlave provisionOndemand(TaskListener listener, Label requiredLabel, EnumSet<ProvisionOptions> provisionOptions) throws AmazonClientException, IOException {
-        PrintStream logger = listener.getLogger();
+        PrintStream logger = null;
+
+        if (listener != null){
+            logger = listener.getLogger();
+        }
         AmazonEC2 ec2 = getParent().connect();
 
         try {
@@ -733,6 +794,7 @@ public class SlaveTemplate implements Describable<SlaveTemplate> {
             launchSpecification.setImageId(ami);
             launchSpecification.setInstanceType(type);
             launchSpecification.setEbsOptimized(ebsOptimized);
+//            this.isNode = getIsNode();
 
             if (StringUtils.isNotBlank(getZone())) {
                 SpotPlacement placement = new SpotPlacement(getZone());
